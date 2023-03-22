@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const _ = require("lodash");
+const mongoose = require("mongoose");
 
 const app = express();
 app.set("view engine", "ejs");
@@ -14,6 +15,24 @@ app.listen(port, () => {
   console.log(`Server Started at port ${port}`);
 });
 
+// LOCAL CONNECTION
+mongoose
+  .connect("mongodb://localhost:27017/blogPost", {
+    useNewUrlParser: true,
+    // useCreateIndex: true,
+    // useFindAndModify: false,
+    // useUnifiedTopology: true,
+  })
+  .then(() => console.log("DB Connection Succesful"));
+
+// CREATE SCHEMA FOR POST
+const postSchema = new mongoose.Schema({
+  title: String,
+  content: String,
+});
+
+const postDB = mongoose.model("post", postSchema);
+//
 const posts = [];
 
 const homeStartingContent =
@@ -26,7 +45,12 @@ const contactViewContent =
   "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quam facere atque, rerum, a soluta aperiam expedita laboriosam dolores, hic nostrum autem error magni porro impedit sapiente ea voluptates? Expedita, fugiat?";
 //Default/Home Route
 app.get("/", (req, res) => {
-  res.render("home", { homeContent: homeStartingContent, otherContent: posts });
+  postDB.find({}).then((foundItems) => {
+    res.render("home", {
+      homeContent: homeStartingContent,
+      otherContent: foundItems,
+    });
+  });
 });
 //About Route
 app.get("/about", (req, res) => {
@@ -48,21 +72,22 @@ app.post("/compose", (req, res) => {
     title: title,
     postContent: post,
   };
+  postDB.insertMany(new postDB({ title: title, content: post }));
   posts.push(postObj);
   res.redirect("/");
 });
 //
 app.get("/post/:postTitle", (req, res) => {
   const postTitle = req.params.postTitle;
-  posts.forEach((value, index) => {
-    if (_.kebabCase(value.title) === _.kebabCase(postTitle)) {
+  postDB.findOne({}).then((foundItems) => {
+    if (_.kebabCase(foundItems.title) === _.kebabCase(postTitle)) {
       res.render("post", {
-        Blogtitle: value.title,
-        Blogcontent: value.postContent,
+        Blogtitle: foundItems.title,
+        Blogcontent: foundItems.content,
       });
       console.log("Match Found");
     } else {
-      console.log("Not a match");
+      console.log("Not a Match!");
     }
   });
 });
